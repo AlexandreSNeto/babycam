@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -15,7 +16,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.babycam.app.data.CameraConfigStore
 import com.babycam.app.model.ViewState
@@ -62,6 +67,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface {
                     val state by viewModel.viewState.collectAsState()
+                    val orientation = LocalConfiguration.current.orientation
 
                     // CAM-10: keep the screen on for as long as the stream is showing or
                     // reconnecting; release it on Empty/Form.
@@ -75,6 +81,22 @@ class MainActivity : ComponentActivity() {
                         // already in PiP mode.
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPictureInPictureMode) {
                             setPictureInPictureParams(viewModel.buildPipParams(this@MainActivity))
+                        }
+                    }
+
+                    // CAM-11: hide system bars for a true fullscreen video in landscape; restore
+                    // them back in portrait. Keyed on orientation too since `state` alone doesn't
+                    // change across a rotation (Playing stays Playing).
+                    LaunchedEffect(state, orientation) {
+                        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+                        val fullscreen = state is ViewState.Viewer && orientation == Configuration.ORIENTATION_LANDSCAPE
+                        WindowCompat.setDecorFitsSystemWindows(window, !fullscreen)
+                        if (fullscreen) {
+                            insetsController.systemBarsBehavior =
+                                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                            insetsController.hide(WindowInsetsCompat.Type.systemBars())
+                        } else {
+                            insetsController.show(WindowInsetsCompat.Type.systemBars())
                         }
                     }
 
