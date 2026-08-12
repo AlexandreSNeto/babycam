@@ -13,6 +13,7 @@ import com.babycam.app.player.PlayerEventListener
 import com.babycam.app.player.RtspPlayerController
 import com.babycam.app.reconnect.BackoffPolicy
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,12 +30,22 @@ class CameraViewModel(
     private val store: CameraConfigStore,
     private val backoffPolicy: BackoffPolicy = BackoffPolicy(),
     private val scope: CoroutineScope,
+    /**
+     * Media3's RTSP extension can block indefinitely without ever calling `onError` when a
+     * camera/network never responds (see androidx/media GitHub issue #10946 — known to hang up
+     * to ~2 minutes with no error). Since reconnection is entirely error-driven, a silent hang
+     * would strand the user on "Conectando..." forever, violating CAM-08/CAM-09's "never get
+     * stuck" guarantee. This watchdog treats prolonged silence as an error, so we always fall
+     * back into the normal backoff/retry cycle instead of waiting on the player indefinitely.
+     */
+    private val connectTimeoutMillis: Long = 15_000L,
 ) {
 
     private val _viewState = MutableStateFlow<ViewState>(ViewState.Empty)
     val viewState: StateFlow<ViewState> = _viewState.asStateFlow()
 
     private var currentConfig: CameraConfig? = null
+    private var watchdogJob: Job? = null
 
     init {
         controller.setListener(object : PlayerEventListener {
@@ -53,10 +64,21 @@ class CameraViewModel(
     private fun startConnecting(config: CameraConfig) {
         currentConfig = config
         _viewState.value = ViewState.Viewer.Connecting
+        playWithWatchdog(config)
+    }
+
+    /** Calls [controller.play] and arms the connect-timeout watchdog (see its kdoc above). */
+    private fun playWithWatchdog(config: CameraConfig) {
         controller.play(config)
+        watchdogJob?.cancel()
+        watchdogJob = scope.launch {
+            delay(connectTimeoutMillis)
+            handleError()
+        }
     }
 
     private fun handleReady() {
+        watchdogJob?.cancel()
         when (_viewState.value) {
             is ViewState.Viewer.Connecting, is ViewState.Viewer.Reconnecting -> {
                 val muted = store.getMuted()
@@ -68,6 +90,7 @@ class CameraViewModel(
     }
 
     private fun handleError() {
+        watchdogJob?.cancel()
         val state = _viewState.value
         val muted = when (state) {
             is ViewState.Viewer.Playing -> state.muted
@@ -81,7 +104,7 @@ class CameraViewModel(
         val config = currentConfig ?: return
         scope.launch {
             delay(backoffPolicy.nextDelayMillis(attempt))
-            controller.play(config)
+            playWithWatchdog(config)
         }
     }
 

@@ -8,6 +8,7 @@ import com.babycam.app.model.CameraConfig
 import com.babycam.app.model.ViewState
 import com.babycam.app.player.FakeRtspPlayerController
 import com.babycam.app.reconnect.BackoffPolicy
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -18,6 +19,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.util.UUID
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class CameraViewModelTest {
 
@@ -42,11 +44,14 @@ class CameraViewModelTest {
     private fun newViewModel(
         store: CameraConfigStore,
         controller: FakeRtspPlayerController = FakeRtspPlayerController(),
+        scope: TestScope = TestScope(),
+        connectTimeoutMillis: Long = 15_000L,
     ) = CameraViewModel(
         controller = controller,
         store = store,
         backoffPolicy = BackoffPolicy(),
-        scope = TestScope(),
+        scope = scope,
+        connectTimeoutMillis = connectTimeoutMillis,
     )
 
     @Test
@@ -187,6 +192,38 @@ class CameraViewModelTest {
         assertEquals(newConfig, controller.playCalls.last())
         val freshStore = CameraConfigStore(context, prefsFileName)
         assertEquals(newConfig, freshStore.getCamera())
+    }
+
+    @Test
+    fun `connect watchdog treats prolonged silence as an error and starts the retry cycle`() {
+        val store = newStore()
+        store.saveCamera(sampleConfig)
+        val controller = FakeRtspPlayerController()
+        val scope = TestScope()
+        val vm = newViewModel(store, controller, scope, connectTimeoutMillis = 5_000L)
+        assertEquals(ViewState.Viewer.Connecting, vm.viewState.value)
+
+        scope.testScheduler.advanceTimeBy(5_001L)
+        scope.testScheduler.runCurrent()
+
+        val state = vm.viewState.value
+        assertTrue("expected Reconnecting but was $state", state is ViewState.Viewer.Reconnecting)
+        assertEquals(1, (state as ViewState.Viewer.Reconnecting).attempt)
+    }
+
+    @Test
+    fun `connect watchdog does not fire once onReady arrives before the timeout`() {
+        val store = newStore()
+        store.saveCamera(sampleConfig)
+        val controller = FakeRtspPlayerController()
+        val scope = TestScope()
+        val vm = newViewModel(store, controller, scope, connectTimeoutMillis = 5_000L)
+
+        controller.triggerReady()
+        scope.testScheduler.advanceTimeBy(5_001L)
+        scope.testScheduler.runCurrent()
+
+        assertEquals(ViewState.Viewer.Playing(muted = false), vm.viewState.value)
     }
 
     @Test
