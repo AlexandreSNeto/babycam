@@ -1,7 +1,11 @@
 package com.babycam.app.ui
 
+import android.app.PendingIntent
 import android.app.PictureInPictureParams
+import android.app.RemoteAction
 import android.content.Context
+import android.content.Intent
+import android.graphics.drawable.Icon
 import com.babycam.app.data.CameraConfigStore
 import com.babycam.app.model.CameraConfig
 import com.babycam.app.model.ViewState
@@ -108,8 +112,41 @@ class CameraViewModel(
         _viewState.value = ViewState.Empty
     }
 
-    /** Minimal PiP params so the interface compiles; full action wiring lands in Phase 5 (T15). */
+    /**
+     * Builds PiP params with a mute/unmute [RemoteAction] reflecting the current [muted] state.
+     * Only [ViewState.Viewer.Playing]/[ViewState.Viewer.Reconnecting] carry a mute state, so no
+     * action is attached for `Empty`/`Form` (matches T14's guard against entering PiP there).
+     * See spec.md CAM-15/CAM-16.
+     */
     fun buildPipParams(context: Context): PictureInPictureParams {
-        return PictureInPictureParams.Builder().build()
+        val builder = PictureInPictureParams.Builder()
+        val muted = when (val state = _viewState.value) {
+            is ViewState.Viewer.Playing -> state.muted
+            is ViewState.Viewer.Reconnecting -> state.muted
+            else -> null
+        }
+        if (muted != null) {
+            val iconRes = if (muted) {
+                android.R.drawable.ic_lock_silent_mode_off
+            } else {
+                android.R.drawable.ic_lock_silent_mode
+            }
+            val label = if (muted) "Ativar áudio" else "Silenciar"
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                0,
+                Intent(ACTION_TOGGLE_MUTE).setPackage(context.packageName),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            builder.setActions(
+                listOf(RemoteAction(Icon.createWithResource(context, iconRes), label, label, pendingIntent)),
+            )
+        }
+        return builder.build()
+    }
+
+    companion object {
+        /** Broadcast action for the PiP window's mute/unmute RemoteAction. App-internal only. */
+        const val ACTION_TOGGLE_MUTE = "com.babycam.app.ACTION_TOGGLE_MUTE"
     }
 }

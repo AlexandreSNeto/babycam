@@ -1,5 +1,9 @@
 package com.babycam.app
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -14,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.babycam.app.data.CameraConfigStore
 import com.babycam.app.model.ViewState
@@ -32,6 +37,13 @@ class MainActivity : ComponentActivity() {
     private lateinit var playerController: Media3RtspPlayerController
     private lateinit var viewModel: CameraViewModel
 
+    /** Handles the PiP window's mute/unmute RemoteAction. See CAM-15. */
+    private val muteReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            viewModel.toggleMute()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -40,6 +52,13 @@ class MainActivity : ComponentActivity() {
             controller = playerController,
             store = CameraConfigStore(applicationContext),
             scope = lifecycleScope,
+        )
+
+        ContextCompat.registerReceiver(
+            this,
+            muteReceiver,
+            IntentFilter(CameraViewModel.ACTION_TOGGLE_MUTE),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
         )
 
         setContent {
@@ -54,6 +73,11 @@ class MainActivity : ComponentActivity() {
                             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                         } else {
                             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        }
+                        // CAM-16: keep the PiP action's icon/label in sync with `muted` while
+                        // already in PiP mode.
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPictureInPictureMode) {
+                            setPictureInPictureParams(viewModel.buildPipParams(this@MainActivity))
                         }
                     }
 
@@ -104,5 +128,11 @@ class MainActivity : ComponentActivity() {
         ) {
             enterPictureInPictureMode(viewModel.buildPipParams(this))
         }
+    }
+
+    override fun onDestroy() {
+        unregisterReceiver(muteReceiver)
+        playerController.release()
+        super.onDestroy()
     }
 }
