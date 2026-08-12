@@ -1,5 +1,7 @@
 package com.babycam.app
 
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -90,6 +92,17 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    /** CAM-14: auto-enter PiP on leaving the app, only while a stream is showing/reconnecting. */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE) &&
+            viewModel.viewState.value is ViewState.Viewer
+        ) {
+            enterPictureInPictureMode(viewModel.buildPipParams(this))
         }
     }
 }
