@@ -2,6 +2,7 @@ package com.babycam.app.player
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -32,6 +33,9 @@ class Media3RtspPlayerController(context: Context) : RtspPlayerController {
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                // Logged because reconnection is silent-by-design to the user (CAM-08); this is
+                // the only place the real RTSP/network failure reason is visible for debugging.
+                Log.w(TAG, "RTSP playback error, will retry via backoff", error)
                 listener?.onError()
             }
         })
@@ -84,4 +88,8 @@ class Media3RtspPlayerController(context: Context) : RtspPlayerController {
     }
 
     private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")
+
+    private companion object {
+        const val TAG = "Media3RtspPlayerController"
+    }
 }

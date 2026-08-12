@@ -6,6 +6,7 @@ import android.app.RemoteAction
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
+import android.util.Log
 import com.babycam.app.data.CameraConfigStore
 import com.babycam.app.model.CameraConfig
 import com.babycam.app.model.ViewState
@@ -73,6 +74,7 @@ class CameraViewModel(
         watchdogJob?.cancel()
         watchdogJob = scope.launch {
             delay(connectTimeoutMillis)
+            Log.w(TAG, "No onReady/onError within ${connectTimeoutMillis}ms — treating as a timeout")
             handleError()
         }
     }
@@ -179,5 +181,6 @@ class CameraViewModel(
     companion object {
         /** Broadcast action for the PiP window's mute/unmute RemoteAction. App-internal only. */
         const val ACTION_TOGGLE_MUTE = "com.babycam.app.ACTION_TOGGLE_MUTE"
+        private const val TAG = "CameraViewModel"
     }
 }
