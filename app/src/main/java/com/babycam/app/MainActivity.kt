@@ -15,9 +15,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.babycam.app.data.CameraConfigStore
@@ -81,25 +78,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // ponytail: local placeholder for the Empty->Form navigation; T16 replaces
-                    // this with a real CameraViewModel-driven state transition.
-                    var showAddForm by remember { mutableStateOf(false) }
-
                     when (val s = state) {
-                        is ViewState.Empty -> {
-                            if (showAddForm) {
-                                CameraFormScreen(
-                                    existing = null,
-                                    onSave = {
-                                        showAddForm = false
-                                        viewModel.saveCamera(it)
-                                    },
-                                    onDelete = null,
-                                )
-                            } else {
-                                EmptyStateScreen(onAddClick = { showAddForm = true })
-                            }
-                        }
+                        is ViewState.Empty -> EmptyStateScreen(onAddClick = viewModel::showForm)
 
                         is ViewState.Form -> CameraFormScreen(
                             existing = s.existing,
@@ -111,7 +91,7 @@ class MainActivity : ComponentActivity() {
                             state = s,
                             player = playerController.exoPlayer,
                             onToggleMute = viewModel::toggleMute,
-                            onEditClick = { /* wired in T16 */ },
+                            onEditClick = viewModel::showForm,
                         )
                     }
                 }

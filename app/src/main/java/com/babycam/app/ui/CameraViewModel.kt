@@ -113,6 +113,14 @@ class CameraViewModel(
     }
 
     /**
+     * Switches to the camera form, pre-filled with the persisted config if one exists (edit,
+     * CAM-12 AC1) or blank otherwise (add, from [ViewState.Empty]).
+     */
+    fun showForm() {
+        _viewState.value = ViewState.Form(existing = store.getCamera())
+    }
+
+    /**
      * Builds PiP params with a mute/unmute [RemoteAction] reflecting the current [muted] state.
      * Only [ViewState.Viewer.Playing]/[ViewState.Viewer.Reconnecting] carry a mute state, so no
      * action is attached for `Empty`/`Form` (matches T14's guard against entering PiP there).
