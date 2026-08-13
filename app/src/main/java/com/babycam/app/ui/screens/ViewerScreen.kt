@@ -50,7 +50,7 @@ fun ViewerScreen(
         Modifier.fillMaxSize().padding(16.dp)
     }
 
-    Box(modifier = contentModifier) {
+    Box(modifier = contentModifier.background(Color.Black)) {
         when (state) {
             is ViewState.Viewer.Playing -> {
                 PlayerSurface(player = player)
@@ -96,7 +96,12 @@ private fun PlayerSurface(player: ExoPlayer) {
     }
     val context = LocalContext.current
     AndroidView(
-        factory = { PlayerView(context).apply { this.player = player } },
+        factory = {
+            PlayerView(context).apply {
+                this.player = player
+                setBackgroundColor(android.graphics.Color.BLACK)
+            }
+        },
         modifier = Modifier.fillMaxSize(),
     )
 }
