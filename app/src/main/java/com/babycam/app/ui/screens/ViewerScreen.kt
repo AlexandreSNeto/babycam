@@ -60,12 +60,14 @@ fun ViewerScreen(
     }
 
     Box(modifier = contentModifier.background(Color.Black)) {
+        // Always composed, in every Viewer state: the player needs a surface to render the first
+        // frame, and "ready" (onRenderedFirstFrame) only fires once it has. Mounting it only in
+        // Playing deadlocked on "Conectando..." forever (audio-only). Also keeps the last frame
+        // alive across Playing -> Stalled.
+        PlayerSurface(player = player)
         when (state) {
-            // Playing and Stalled share one branch so the PlayerView (and its last frame) isn't
-            // disposed and recreated when the stream freezes.
             is ViewState.Viewer.Playing, is ViewState.Viewer.Stalled -> {
                 val muted = if (state is ViewState.Viewer.Stalled) state.muted else (state as ViewState.Viewer.Playing).muted
-                PlayerSurface(player = player)
                 Row(
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -97,8 +99,9 @@ fun ViewerScreen(
             }
 
             is ViewState.Viewer.Connecting, is ViewState.Viewer.Reconnecting -> {
+                // Opaque so no stale frame shows through while (re)connecting (camera-viewer CAM-08).
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().background(Color.Black),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
