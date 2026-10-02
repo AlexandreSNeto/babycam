@@ -419,4 +419,49 @@ class CameraViewModelTest {
         assertEquals(2, controller.playCalls.size)
         assertEquals(listOf("reconnect reason=ERROR attempt=1 delayMs=1000"), reconnectLogs())
     }
+
+    @Test
+    fun `banner time counts from the last frame and ticks every second (RES-06)`() {
+        val controller = FakeRtspPlayerController()
+        val scope = TestScope()
+        val vm = playingViewModel(controller, scope)
+        scope.advance(5_000)
+        assertEquals(5, (vm.viewState.value as ViewState.Viewer.Stalled).stalledForSec)
+
+        scope.advance(7_000)
+
+        assertEquals(12, (vm.viewState.value as ViewState.Viewer.Stalled).stalledForSec)
+    }
+
+    @Test
+    fun `toggleMute while Stalled flips and persists mute`() {
+        val prefsFileName = uniquePrefsFileName()
+        val store = newStore(prefsFileName).apply { saveCamera(sampleConfig) }
+        val controller = FakeRtspPlayerController()
+        val scope = TestScope()
+        val vm = playingViewModel(controller, scope, store)
+        scope.advance(5_000)
+
+        vm.toggleMute()
+
+        assertEquals(true, (vm.viewState.value as ViewState.Viewer.Stalled).muted)
+        assertEquals(true, controller.setMutedCalls.last())
+        assertTrue(CameraConfigStore(context, prefsFileName).getMuted())
+    }
+
+    @Test
+    fun `deleteCamera while Stalled cancels pending reconnection`() {
+        val controller = FakeRtspPlayerController()
+        val scope = TestScope()
+        val vm = playingViewModel(controller, scope)
+        scope.advance(5_000)
+        controller.triggerError() // retry pending in 2s
+        val playsBefore = controller.playCalls.size
+
+        vm.deleteCamera()
+        scope.advance(60_000)
+
+        assertEquals(ViewState.Empty, vm.viewState.value)
+        assertEquals(playsBefore, controller.playCalls.size)
+    }
 }

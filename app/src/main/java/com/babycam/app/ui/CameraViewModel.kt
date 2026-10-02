@@ -59,6 +59,7 @@ class CameraViewModel(
     private var watchdogJob: Job? = null
     private var retryJob: Job? = null
     private var healthJob: Job? = null
+    private var tickerJob: Job? = null
 
     init {
         controller.setListener(object : PlayerEventListener {
@@ -75,6 +76,7 @@ class CameraViewModel(
     }
 
     private fun startConnecting(config: CameraConfig) {
+        cancelJobs()
         currentConfig = config
         _viewState.value = ViewState.Viewer.Connecting
         playWithWatchdog(config)
@@ -134,11 +136,32 @@ class CameraViewModel(
             stalledForSec = ((clock() - healthMonitor.lastFrameAtMs()) / 1000).toInt(),
             cause = cause,
         )
+        startStalledTicker()
         reconnect(
             if (cause == StallCause.STALL) ReconnectReason.STALL else ReconnectReason.DRIFT,
             attempt = 1,
             delayMillis = 0,
         )
+    }
+
+    /** Keeps the banner's "travada há Ns" current; ends by itself once the state leaves Stalled (RES-06). */
+    private fun startStalledTicker() {
+        tickerJob?.cancel()
+        tickerJob = scope.launch {
+            while (isActive) {
+                delay(1_000)
+                val state = _viewState.value as? ViewState.Viewer.Stalled ?: return@launch
+                _viewState.value =
+                    state.copy(stalledForSec = ((clock() - healthMonitor.lastFrameAtMs()) / 1000).toInt())
+            }
+        }
+    }
+
+    private fun cancelJobs() {
+        watchdogJob?.cancel()
+        retryJob?.cancel()
+        healthJob?.cancel()
+        tickerJob?.cancel()
     }
 
     private fun handleError(reason: ReconnectReason) {
@@ -184,6 +207,7 @@ class CameraViewModel(
         val newMuted = when (val state = _viewState.value) {
             is ViewState.Viewer.Playing -> !state.muted
             is ViewState.Viewer.Reconnecting -> !state.muted
+            is ViewState.Viewer.Stalled -> !state.muted
             else -> return
         }
         store.setMuted(newMuted)
@@ -191,6 +215,7 @@ class CameraViewModel(
         _viewState.value = when (val state = _viewState.value) {
             is ViewState.Viewer.Playing -> state.copy(muted = newMuted)
             is ViewState.Viewer.Reconnecting -> state.copy(muted = newMuted)
+            is ViewState.Viewer.Stalled -> state.copy(muted = newMuted)
             else -> state
         }
     }
@@ -201,6 +226,7 @@ class CameraViewModel(
     }
 
     fun deleteCamera() {
+        cancelJobs()
         store.deleteCamera()
         controller.release()
         currentConfig = null
@@ -226,6 +252,7 @@ class CameraViewModel(
         val muted = when (val state = _viewState.value) {
             is ViewState.Viewer.Playing -> state.muted
             is ViewState.Viewer.Reconnecting -> state.muted
+            is ViewState.Viewer.Stalled -> state.muted
             else -> null
         }
         if (muted != null) {
