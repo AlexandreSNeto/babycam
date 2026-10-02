@@ -538,4 +538,20 @@ class CameraViewModelTest {
         scope.advance(250)
         assertTrue(vm.viewState.value is ViewState.Viewer.Stalled)
     }
+
+    @Test
+    fun `opening the form while Stalled cancels the pending reconnection`() {
+        val controller = FakeRtspPlayerController()
+        val scope = TestScope()
+        val vm = playingViewModel(controller, scope)
+        scope.advance(5_000)
+        controller.triggerError() // retry pending in 2s
+        val playsBefore = controller.playCalls.size
+
+        vm.showForm()
+        scope.advance(60_000)
+
+        assertTrue(vm.viewState.value is ViewState.Form)
+        assertEquals(playsBefore, controller.playCalls.size)
+    }
 }

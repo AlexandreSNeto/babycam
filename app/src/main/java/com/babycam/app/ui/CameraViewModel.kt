@@ -265,6 +265,8 @@ class CameraViewModel(
      * CAM-12 AC1) or blank otherwise (add, from [ViewState.Empty]).
      */
     fun showForm() {
+        // The form only leaves via save (restarts the connection) or delete, so pending retries are moot.
+        cancelJobs()
         _viewState.value = ViewState.Form(existing = store.getCamera())
     }
 
