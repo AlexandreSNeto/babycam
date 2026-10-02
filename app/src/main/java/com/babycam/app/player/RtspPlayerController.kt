@@ -13,9 +13,16 @@ interface RtspPlayerController {
     fun release()
     fun setMuted(muted: Boolean)
     fun setListener(listener: PlayerEventListener)
+
+    /** Video frames rendered so far in this session; stops changing when the picture freezes. */
+    fun renderedFrameCount(): Long
+
+    /** Current media position; lags wall clock when playback pauses to rebuffer. */
+    fun positionMs(): Long
 }
 
 interface PlayerEventListener {
+    /** First video frame of a (re)connection is on screen. */
     fun onReady()
     fun onError()
 }

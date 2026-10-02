@@ -14,6 +14,10 @@ class FakeRtspPlayerController : RtspPlayerController {
     var releaseCallCount = 0
         private set
 
+    /** Tests advance this to simulate frames being rendered; leave it still to simulate a freeze. */
+    var renderedFrames = 0L
+    var position = 0L
+
     private var listener: PlayerEventListener? = null
 
     override fun play(config: CameraConfig) {
@@ -31,6 +35,10 @@ class FakeRtspPlayerController : RtspPlayerController {
     override fun setListener(listener: PlayerEventListener) {
         this.listener = listener
     }
+
+    override fun renderedFrameCount(): Long = renderedFrames
+
+    override fun positionMs(): Long = position
 
     fun triggerReady() {
         listener?.onReady()
