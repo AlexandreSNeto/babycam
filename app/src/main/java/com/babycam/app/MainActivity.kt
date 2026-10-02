@@ -112,6 +112,7 @@ class MainActivity : ComponentActivity() {
                         is ViewState.Viewer -> ViewerScreen(
                             state = s,
                             player = playerController.exoPlayer,
+                            isInPip = false,
                             onToggleMute = viewModel::toggleMute,
                             onEditClick = viewModel::showForm,
                         )
