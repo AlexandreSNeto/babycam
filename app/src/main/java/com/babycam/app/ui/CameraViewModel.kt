@@ -60,6 +60,7 @@ class CameraViewModel(
     private var retryJob: Job? = null
     private var healthJob: Job? = null
     private var tickerJob: Job? = null
+    private var inForeground = true
 
     init {
         controller.setListener(object : PlayerEventListener {
@@ -115,6 +116,8 @@ class CameraViewModel(
      */
     private fun startHealthMonitor() {
         healthJob?.cancel()
+        // In background the surface is gone, so frames stop by design: not a stall.
+        if (!inForeground) return
         healthMonitor.reset(clock(), controller.renderedFrameCount(), controller.positionMs())
         healthJob = scope.launch {
             while (isActive) {
@@ -201,6 +204,30 @@ class CameraViewModel(
                 playWithWatchdog(config)
             }
         }
+    }
+
+    /**
+     * A network just came up: skip the remaining backoff wait (RES-11). An attempt already in
+     * flight is left alone, since it may be the one that succeeds.
+     */
+    fun onNetworkAvailable() {
+        if (retryJob?.isActive != true) return
+        val attempt = when (val state = _viewState.value) {
+            is ViewState.Viewer.Reconnecting -> state.attempt
+            is ViewState.Viewer.Stalled -> state.attempt
+            else -> return
+        }
+        reconnect(ReconnectReason.NETWORK_AVAILABLE, attempt, delayMillis = 0)
+    }
+
+    fun onBackground() {
+        inForeground = false
+        healthJob?.cancel()
+    }
+
+    fun onForeground() {
+        inForeground = true
+        if (_viewState.value is ViewState.Viewer.Playing) startHealthMonitor()
     }
 
     fun toggleMute() {

@@ -464,4 +464,78 @@ class CameraViewModelTest {
         assertEquals(ViewState.Empty, vm.viewState.value)
         assertEquals(playsBefore, controller.playCalls.size)
     }
+
+    @Test
+    fun `network available during a backoff wait connects immediately, once (RES-11)`() {
+        val controller = FakeRtspPlayerController()
+        val scope = TestScope()
+        val vm = playingViewModel(controller, scope)
+        repeat(4) { controller.triggerError() } // Reconnecting attempt 4 -> 8s backoff pending
+        assertEquals(ViewState.Viewer.Reconnecting(muted = false, attempt = 4), vm.viewState.value)
+        val playsBefore = controller.playCalls.size
+
+        vm.onNetworkAvailable()
+        assertEquals(playsBefore + 1, controller.playCalls.size)
+        scope.advance(8_000)
+
+        assertEquals(playsBefore + 1, controller.playCalls.size)
+        assertEquals("reconnect reason=NETWORK_AVAILABLE attempt=4 delayMs=0", reconnectLogs().last())
+    }
+
+    @Test
+    fun `network available while Stalled and waiting on backoff connects immediately (RES-11)`() {
+        val controller = FakeRtspPlayerController()
+        val scope = TestScope()
+        val vm = playingViewModel(controller, scope)
+        scope.advance(5_000)
+        controller.triggerError()
+        val playsBefore = controller.playCalls.size
+
+        vm.onNetworkAvailable()
+
+        assertEquals(playsBefore + 1, controller.playCalls.size)
+        assertTrue(vm.viewState.value is ViewState.Viewer.Stalled)
+    }
+
+    @Test
+    fun `network available while Playing is a no-op`() {
+        val controller = FakeRtspPlayerController()
+        val vm = playingViewModel(controller, TestScope())
+
+        vm.onNetworkAvailable()
+
+        assertEquals(1, controller.playCalls.size)
+        assertEquals(ViewState.Viewer.Playing(muted = false), vm.viewState.value)
+    }
+
+    @Test
+    fun `in-flight attempt is not restarted by a network event`() {
+        val controller = FakeRtspPlayerController()
+        val scope = TestScope()
+        val vm = playingViewModel(controller, scope)
+        controller.triggerError()
+        scope.advance(1_000)
+        val plays = controller.playCalls.size
+
+        vm.onNetworkAvailable()
+
+        assertEquals(plays, controller.playCalls.size)
+    }
+
+    @Test
+    fun `no stall is detected while in background and detection restarts on foreground`() {
+        val controller = FakeRtspPlayerController()
+        val scope = TestScope()
+        val vm = playingViewModel(controller, scope)
+
+        vm.onBackground()
+        scope.advance(60_000)
+        assertEquals(ViewState.Viewer.Playing(muted = false), vm.viewState.value)
+
+        vm.onForeground()
+        scope.advance(4_750)
+        assertEquals(ViewState.Viewer.Playing(muted = false), vm.viewState.value)
+        scope.advance(250)
+        assertTrue(vm.viewState.value is ViewState.Viewer.Stalled)
+    }
 }
