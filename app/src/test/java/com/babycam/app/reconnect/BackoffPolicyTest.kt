@@ -35,4 +35,11 @@ class BackoffPolicyTest {
         assertEquals(BackoffPolicy.MAX_DELAY_MILLIS, policy.nextDelayMillis(6))
         assertEquals(BackoffPolicy.MAX_DELAY_MILLIS, policy.nextDelayMillis(7))
     }
+
+    @Test
+    fun `cap is 10 seconds so a LAN camera is retried at least every 10s (RES-12)`() {
+        assertEquals(8000L, policy.nextDelayMillis(4))
+        assertEquals(10_000L, policy.nextDelayMillis(5))
+        assertEquals(10_000L, policy.nextDelayMillis(100))
+    }
 }

@@ -17,6 +17,6 @@ class BackoffPolicy {
 
     companion object {
         const val INITIAL_DELAY_MILLIS: Long = 1000
-        const val MAX_DELAY_MILLIS: Long = 30_000
+        const val MAX_DELAY_MILLIS: Long = 10_000
     }
 }
