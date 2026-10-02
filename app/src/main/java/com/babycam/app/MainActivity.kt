@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -16,6 +18,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -38,6 +41,15 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var playerController: Media3RtspPlayerController
     private lateinit var viewModel: CameraViewModel
+
+    private val isInPip = mutableStateOf(false)
+
+    /** A network came up: skip any remaining reconnect backoff (RES-11). Fires off the main thread. */
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            runOnUiThread { viewModel.onNetworkAvailable() }
+        }
+    }
 
     /** Handles the PiP window's mute/unmute RemoteAction. See CAM-15. */
     private val muteReceiver = object : BroadcastReceiver() {
@@ -62,6 +74,7 @@ class MainActivity : ComponentActivity() {
             IntentFilter(CameraViewModel.ACTION_TOGGLE_MUTE),
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
+        getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)
 
         setContent {
             MaterialTheme {
@@ -112,7 +125,7 @@ class MainActivity : ComponentActivity() {
                         is ViewState.Viewer -> ViewerScreen(
                             state = s,
                             player = playerController.exoPlayer,
-                            isInPip = false,
+                            isInPip = isInPip.value,
                             onToggleMute = viewModel::toggleMute,
                             onEditClick = viewModel::showForm,
                         )
@@ -133,7 +146,24 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        isInPip.value = isInPictureInPictureMode
+    }
+
+    // PiP keeps the Activity started, so health monitoring only pauses when truly hidden.
+    override fun onStart() {
+        super.onStart()
+        viewModel.onForeground()
+    }
+
+    override fun onStop() {
+        viewModel.onBackground()
+        super.onStop()
+    }
+
     override fun onDestroy() {
+        getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(networkCallback)
         unregisterReceiver(muteReceiver)
         playerController.release()
         super.onDestroy()
