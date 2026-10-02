@@ -79,7 +79,7 @@ fun ViewerScreen(
                 }
             }
 
-            is ViewState.Viewer.Connecting, is ViewState.Viewer.Reconnecting -> {
+            is ViewState.Viewer.Connecting, is ViewState.Viewer.Reconnecting, is ViewState.Viewer.Stalled -> {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
