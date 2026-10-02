@@ -39,7 +39,7 @@ class CameraViewModel(
      * stuck" guarantee. This watchdog treats prolonged silence as an error, so we always fall
      * back into the normal backoff/retry cycle instead of waiting on the player indefinitely.
      */
-    private val connectTimeoutMillis: Long = 15_000L,
+    private val connectTimeoutMillis: Long = 30_000L,
 ) {
 
     private val _viewState = MutableStateFlow<ViewState>(ViewState.Empty)

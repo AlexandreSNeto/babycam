@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -58,11 +60,21 @@ fun ViewerScreen(
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    IconButton(onClick = onToggleMute) {
-                        Text(if (state.muted) "🔇" else "🔊")
+                    ViewerIconButton(onClick = onToggleMute) {
+                        Icon(
+                            painter = painterResource(
+                                id = if (state.muted) {
+                                    android.R.drawable.ic_lock_silent_mode
+                                } else {
+                                    android.R.drawable.ic_lock_silent_mode_off
+                                },
+                            ),
+                            contentDescription = if (state.muted) "Ativar áudio" else "Silenciar",
+                            tint = Color.White,
+                        )
                     }
-                    IconButton(onClick = onEditClick) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Editar câmera")
+                    ViewerIconButton(onClick = onEditClick) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Editar câmera", tint = Color.White)
                     }
                 }
             }
@@ -76,15 +88,35 @@ fun ViewerScreen(
                     CircularProgressIndicator()
                     Text(
                         if (state is ViewState.Viewer.Reconnecting) {
-                            "Reconectando..."
+                            "Reconectando... (tentativa ${state.attempt})"
                         } else {
                             "Conectando..."
                         },
                     )
                 }
+                ViewerIconButton(
+                    onClick = onEditClick,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                ) {
+                    Icon(Icons.Filled.Settings, contentDescription = "Editar câmera", tint = Color.White)
+                }
             }
         }
     }
+}
+
+/** Floating control button with a dark circular backdrop so its icon stays legible over any video frame. */
+@Composable
+private fun ViewerIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.background(Color.Black.copy(alpha = 0.45f), CircleShape),
+        content = content,
+    )
 }
 
 /** Real PlayerView bound to [player], except in Compose preview where it's a stand-in box. */
@@ -100,6 +132,8 @@ private fun PlayerSurface(player: ExoPlayer) {
             PlayerView(context).apply {
                 this.player = player
                 setBackgroundColor(android.graphics.Color.BLACK)
+                useController = false
+                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
             }
         },
         modifier = Modifier.fillMaxSize(),

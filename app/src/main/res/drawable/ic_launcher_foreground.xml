@@ -1,0 +1,22 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Camera body + viewfinder: a baby-monitor camera -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M39,44 H69 A7,7 0 0 1 76,51 V65 A7,7 0 0 1 69,72 H39 A7,7 0 0 1 32,65 V51 A7,7 0 0 1 39,44 Z
+                           M48,38 H58 A2,2 0 0 1 60,40 V44 A2,2 0 0 1 58,46 H48 A2,2 0 0 1 46,44 V40 A2,2 0 0 1 48,38 Z" />
+    <!-- Lens: punched out of the body in the background color -->
+    <path
+        android:fillColor="#4FC3F7"
+        android:pathData="M46,58 A8,8 0 1 0 62,58 A8,8 0 1 0 46,58 Z" />
+    <!-- Crescent moon: signals night-time nursery watch -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M64,30 A8,8 0 1 0 80,30 A8,8 0 1 0 64,30 Z" />
+    <path
+        android:fillColor="#4FC3F7"
+        android:pathData="M69,26 A7,7 0 1 0 83,26 A7,7 0 1 0 69,26 Z" />
+</vector>
